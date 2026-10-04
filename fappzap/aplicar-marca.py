@@ -120,41 +120,14 @@ trocar("src/platform/windows.rs",
 # (2) O serviço empacotado abre o programa na sessão do usuário: o processo filho herdava a
 #     identidade do pacote e morria ao iniciar (erro 575). Com o "breakaway" ele roda como no
 #     instalador MSI. Só pede o breakaway quando o próprio serviço está dentro de um pacote.
+#     As tentativas e o registro estão em fappzap/patches/lancamento-empacotado.cc.
+trocar("src/platform/windows.cc",
+       "    HANDLE LaunchProcessWin(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, BOOL show, DWORD *pDwTokenPid)\n",
+       (Path(__file__).resolve().parent / "patches" / "lancamento-empacotado.cc").read_text(encoding="utf-8")
+       + "    HANDLE LaunchProcessWin(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, BOOL show, DWORD *pDwTokenPid)\n")
 trocar("src/platform/windows.cc",
        "            if (CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &si, &pi))\n",
-       "            // FappZap Acesso: fora do pacote da Store quando o servico esta empacotado.\n"
-       "            STARTUPINFOEXW six;\n"
-       "            ZeroMemory(&six, sizeof six);\n"
-       "            six.StartupInfo = si;\n"
-       "            six.StartupInfo.cb = sizeof six;\n"
-       "            std::vector<BYTE> attrBuf;\n"
-       "            DWORD policy = 0x01; // PROCESS_CREATION_DESKTOP_APP_BREAKAWAY_ENABLE_PROCESS_TREE\n"
-       "            typedef LONG(WINAPI * PGetCurrentPackageFullName)(UINT32 *, PWSTR);\n"
-       "            PGetCurrentPackageFullName fzPkg = (PGetCurrentPackageFullName)GetProcAddress(GetModuleHandleW(L\"kernel32.dll\"), \"GetCurrentPackageFullName\");\n"
-       "            UINT32 fzLen = 0;\n"
-       "            BOOL fzEmpacotado = fzPkg && fzPkg(&fzLen, NULL) == ERROR_INSUFFICIENT_BUFFER;\n"
-       "            if (fzEmpacotado)\n"
-       "            {\n"
-       "                SIZE_T attrSize = 0;\n"
-       "                InitializeProcThreadAttributeList(NULL, 1, 0, &attrSize);\n"
-       "                attrBuf.resize(attrSize);\n"
-       "                six.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)attrBuf.data();\n"
-       "                if (InitializeProcThreadAttributeList(six.lpAttributeList, 1, 0, &attrSize) &&\n"
-       "                    UpdateProcThreadAttribute(six.lpAttributeList, 0, ProcThreadAttributeValue(18, FALSE, TRUE, FALSE), &policy, sizeof policy, NULL, NULL))\n"
-       "                {\n"
-       "                    dwCreationFlags |= EXTENDED_STARTUPINFO_PRESENT;\n"
-       "                }\n"
-       "                else\n"
-       "                {\n"
-       "                    six.lpAttributeList = NULL;\n"
-       "                }\n"
-       "            }\n"
-       "            BOOL fzOk = (dwCreationFlags & EXTENDED_STARTUPINFO_PRESENT)\n"
-       "                ? CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &six.StartupInfo, &pi)\n"
-       "                : CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &si, &pi);\n"
-       "            if (six.lpAttributeList)\n"
-       "                DeleteProcThreadAttributeList(six.lpAttributeList);\n"
-       "            if (fzOk)\n")
+       "            if (FzCreateProcess(hToken, buf, dwCreationFlags, lpEnvironment, &si, &pi))\n")
 
 # 4. Ícones: fappzap/marca/ espelha os caminhos do repositório
 copiados = 0
