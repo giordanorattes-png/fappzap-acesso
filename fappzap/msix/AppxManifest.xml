@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Manifesto do pacote da Microsoft Store do FappZap Acesso. {VERSAO}, {IDENTIDADE} e {PUBLISHER}
+     são trocados pelo fappzap/msix/montar-msix.ps1. O serviço é o mesmo do instalador MSI
+     (argumento service, conta Sistema): é ele que permite o acesso sem supervisão. Por isso o pacote
+     declara as capacidades restritas packagedServices e localSystemServices, que a Store analisa. -->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap desktop desktop2 desktop6 rescap">
+
+  <Identity Name="{IDENTIDADE}" Publisher="{PUBLISHER}" Version="{VERSAO}" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>FappZap Acesso</DisplayName>
+    <PublisherDisplayName>Fapp Solutions</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>Acesso remoto da Fapp Solutions, baseado no RustDesk (AGPL-3.0).</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.18362.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="pt-BR" />
+    <Resource Language="en-US" />
+    <Resource Language="es-ES" />
+  </Resources>
+
+  <Applications>
+    <Application Id="FappZapAcesso" Executable="FappZap-Acesso.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="FappZap Acesso" Description="Acesso remoto da Fapp Solutions"
+        BackgroundColor="#083344" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square310x310Logo="Assets\Square310x310Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="fappzap-acesso">
+            <uap:DisplayName>FappZap Acesso</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+        <desktop6:Extension Category="windows.service" Executable="FappZap-Acesso.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop6:Service Name="FappZap-Acesso" StartupType="auto" StartAccount="localSystem" Arguments="--service" />
+        </desktop6:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Extensions>
+    <desktop2:Extension Category="windows.firewallRules">
+      <desktop2:FirewallRules Executable="FappZap-Acesso.exe">
+        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="all" />
+        <desktop2:Rule Direction="in" IPProtocol="UDP" Profile="all" />
+      </desktop2:FirewallRules>
+    </desktop2:Extension>
+  </Extensions>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="packagedServices" />
+    <rescap:Capability Name="localSystemServices" />
+  </Capabilities>
+</Package>
