@@ -102,6 +102,60 @@ for antes, depois in [
     trocar(tema, antes, depois)
 trocar("flutter/android/app/src/main/res/values/colors.xml", "#FF0071FF", "#FF4F46E5")
 
+# 3c. Pacote da Microsoft Store (MSIX). Fora do pacote nada disto muda o comportamento.
+# (1) Instalado pela Store, o programa mora em ...\WindowsApps\...: sem isto ele procura a si
+#     mesmo em Program Files, não se acha instalado, vira "portátil", pede administrador e fecha.
+trocar("src/platform/windows.rs",
+       "    if path.is_empty() {\n        path = get_default_install_path();\n    }\n    path = path.trim_end_matches('\\\\').to_owned();\n",
+       "    if path.is_empty() {\n        path = get_default_install_path();\n    }\n"
+       "    // FappZap Acesso: no pacote da Store, a instalação é a pasta do próprio pacote.\n"
+       "    if let Ok(exe) = std::env::current_exe() {\n"
+       "        if exe.to_string_lossy().to_lowercase().contains(\"\\\\windowsapps\\\\\") {\n"
+       "            if let Some(dir) = exe.parent() {\n"
+       "                path = dir.to_string_lossy().to_string();\n"
+       "            }\n"
+       "        }\n"
+       "    }\n"
+       "    path = path.trim_end_matches('\\\\').to_owned();\n")
+# (2) O serviço empacotado abre o programa na sessão do usuário: o processo filho herdava a
+#     identidade do pacote e morria ao iniciar (erro 575). Com o "breakaway" ele roda como no
+#     instalador MSI. Só pede o breakaway quando o próprio serviço está dentro de um pacote.
+trocar("src/platform/windows.cc",
+       "            if (CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &si, &pi))\n",
+       "            // FappZap Acesso: fora do pacote da Store quando o servico esta empacotado.\n"
+       "            STARTUPINFOEXW six;\n"
+       "            ZeroMemory(&six, sizeof six);\n"
+       "            six.StartupInfo = si;\n"
+       "            six.StartupInfo.cb = sizeof six;\n"
+       "            std::vector<BYTE> attrBuf;\n"
+       "            DWORD policy = 0x01; // PROCESS_CREATION_DESKTOP_APP_BREAKAWAY_ENABLE_PROCESS_TREE\n"
+       "            typedef LONG(WINAPI * PGetCurrentPackageFullName)(UINT32 *, PWSTR);\n"
+       "            PGetCurrentPackageFullName fzPkg = (PGetCurrentPackageFullName)GetProcAddress(GetModuleHandleW(L\"kernel32.dll\"), \"GetCurrentPackageFullName\");\n"
+       "            UINT32 fzLen = 0;\n"
+       "            BOOL fzEmpacotado = fzPkg && fzPkg(&fzLen, NULL) == ERROR_INSUFFICIENT_BUFFER;\n"
+       "            if (fzEmpacotado)\n"
+       "            {\n"
+       "                SIZE_T attrSize = 0;\n"
+       "                InitializeProcThreadAttributeList(NULL, 1, 0, &attrSize);\n"
+       "                attrBuf.resize(attrSize);\n"
+       "                six.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)attrBuf.data();\n"
+       "                if (InitializeProcThreadAttributeList(six.lpAttributeList, 1, 0, &attrSize) &&\n"
+       "                    UpdateProcThreadAttribute(six.lpAttributeList, 0, ProcThreadAttributeValue(18, FALSE, TRUE, FALSE), &policy, sizeof policy, NULL, NULL))\n"
+       "                {\n"
+       "                    dwCreationFlags |= EXTENDED_STARTUPINFO_PRESENT;\n"
+       "                }\n"
+       "                else\n"
+       "                {\n"
+       "                    six.lpAttributeList = NULL;\n"
+       "                }\n"
+       "            }\n"
+       "            BOOL fzOk = (dwCreationFlags & EXTENDED_STARTUPINFO_PRESENT)\n"
+       "                ? CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &six.StartupInfo, &pi)\n"
+       "                : CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &si, &pi);\n"
+       "            if (six.lpAttributeList)\n"
+       "                DeleteProcThreadAttributeList(six.lpAttributeList);\n"
+       "            if (fzOk)\n")
+
 # 4. Ícones: fappzap/marca/ espelha os caminhos do repositório
 copiados = 0
 for origem in MARCA.rglob("*"):
