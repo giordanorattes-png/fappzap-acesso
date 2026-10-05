@@ -1,4 +1,6 @@
 !*.png
 !*.svg
 !*.ico
+!*.ttf
+!*.txt
 ico-fontes/
