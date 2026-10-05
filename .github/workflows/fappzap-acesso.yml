@@ -8,6 +8,27 @@ on:
         description: "Tag do release onde os arquivos entram (ex.: acesso-1.5.0-1)"
         required: true
         type: string
+      variante:
+        description: "padrao = MSI, .exe e APKs (acesso sem supervisão) | loja = pacote da Microsoft Store (só atendimento com o cliente presente)"
+        required: false
+        default: padrao
+        type: choice
+        options: [padrao, loja]
+      revisao:
+        description: "Só variante loja: 3º número da versão do pacote (1.5.<revisao>.0). Suba a cada envio novo à Store."
+        required: false
+        default: "0"
+        type: string
+      identidade:
+        description: "Só variante loja: Package/Identity/Name do produto no Partner Center"
+        required: false
+        default: "FappSolutions.FappZapAcesso"
+        type: string
+      publisher:
+        description: "Só variante loja: Package/Identity/Publisher do Partner Center"
+        required: false
+        default: "CN=997374EF-248E-4CB5-BE11-B0218CDA905C"
+        type: string
 
 permissions:
   contents: write
@@ -109,6 +130,8 @@ jobs:
 
       - name: Aplicar a marca FappZap Acesso
         shell: bash
+        env:
+          FAPPZAP_VARIANTE: ${{ inputs.variante }}
         run: python3 fappzap/aplicar-marca.py
 
       - name: Restore bridge files
@@ -379,8 +402,28 @@ jobs:
             ./SignOutput/fappzap-acesso-*.exe
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
+
+      - name: Montar o pacote da Microsoft Store (variante loja)
+        if: inputs.variante == 'loja'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path SignOutput | Out-Null
+          $p = "${{ env.VERSION }}".Split('.')
+          $versao = "$($p[0]).$($p[1]).${{ inputs.revisao }}.0"
+          ./fappzap/msix/montar-msix.ps1 -App ./rustdesk -Saida "./SignOutput/fappzap-acesso-${{ env.VERSION }}-loja-x64.msix" `
+            -Versao $versao -Modelo AppxManifest.loja.xml -Identidade "${{ inputs.identidade }}" -Publisher "${{ inputs.publisher }}"
+
+      - name: Publicar o pacote da Microsoft Store
+        if: inputs.variante == 'loja'
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            ./SignOutput/fappzap-acesso-*-loja-x64.msix
   build-rustdesk-android:
     needs: [generate-bridge]
+    if: ${{ inputs.variante != 'loja' }}
     name: build rustdesk android apk ${{ matrix.job.target }}
     runs-on: ${{ matrix.job.os }}
     strategy:
@@ -468,6 +511,8 @@ jobs:
 
       - name: Aplicar a marca FappZap Acesso
         shell: bash
+        env:
+          FAPPZAP_VARIANTE: ${{ inputs.variante }}
         run: python3 fappzap/aplicar-marca.py
 
       - name: Install flutter
@@ -679,7 +724,7 @@ jobs:
   build-rustdesk-android-universal:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
-    if: true
+    if: ${{ inputs.variante != 'loja' }}
     runs-on: ubuntu-24.04
     env:
       reltype: release
@@ -745,6 +790,8 @@ jobs:
 
       - name: Aplicar a marca FappZap Acesso
         shell: bash
+        env:
+          FAPPZAP_VARIANTE: ${{ inputs.variante }}
         run: python3 fappzap/aplicar-marca.py
 
       - name: Install flutter

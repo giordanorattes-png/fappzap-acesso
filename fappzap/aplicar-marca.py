@@ -60,6 +60,14 @@ trocar(cfg, "pub static ref DEFAULT_SETTINGS: RwLock<HashMap<String, String>> = 
        f'("custom-rendezvous-server".to_owned(), "{SERVIDOR}".to_owned()), '
        f'("key".to_owned(), "{CHAVE_PUBLICA}".to_owned())]));')
 
+# 1b. VARIANTE DA MICROSOFT STORE (FAPPZAP_VARIANTE=loja): sem "Instalar". Instalar copiaria o programa para
+# fora do pacote da Store (o Windows deixaria de confiar nele e a Store não quer isso). O resto é igual.
+import os
+if os.environ.get("FAPPZAP_VARIANTE") == "loja":
+    trocar(cfg, "pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = Default::default();",
+           "pub static ref HARD_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from(["
+           '("disable-installation".to_owned(), "Y".to_owned())]));')
+
 # 2. Windows: metadados do .exe (Propriedades → Detalhes e o Gerenciador de Tarefas)
 trocar("Cargo.toml", r'^LegalCopyright = ".*"$', f'LegalCopyright = "{COPYRIGHT}"', regex=True)
 trocar("Cargo.toml", r'^ProductName = "RustDesk"$', f'ProductName = "{NOME_VISIVEL}"', regex=True)

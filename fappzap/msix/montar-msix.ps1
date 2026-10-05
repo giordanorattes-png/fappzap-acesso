@@ -7,6 +7,9 @@ param(
   [Parameter(Mandatory)] [string] $Saida,
   [Parameter(Mandatory)] [string] $Versao,
   [string] $Identidade = 'FappSolutions.FappZapAcesso',
+  # AppxManifest.xml = pacote com serviço (acesso sem supervisão; NÃO funciona na Store).
+  # AppxManifest.loja.xml = variante da Store, sem serviço (atendimento com o cliente presente).
+  [string] $Modelo = 'AppxManifest.xml',
   # O Publisher da conta Fapp Solutions no Partner Center (o mesmo do FappZap Suporte).
   [string] $Publisher = 'CN=997374EF-248E-4CB5-BE11-B0218CDA905C'
 )
@@ -21,7 +24,7 @@ Get-ChildItem $App | Where-Object { $_.Name -notin @('drivers', 'usbmmidd_v2') }
   ForEach-Object { Copy-Item $_.FullName -Destination $layout -Recurse }
 Copy-Item (Join-Path $raiz 'marca-msix') -Destination (Join-Path $layout 'Assets') -Recurse
 
-$manifesto = Get-Content (Join-Path $aqui 'AppxManifest.xml') -Raw -Encoding UTF8
+$manifesto = Get-Content (Join-Path $aqui $Modelo) -Raw -Encoding UTF8
 $manifesto = $manifesto.Replace('{VERSAO}', $Versao).Replace('{IDENTIDADE}', $Identidade).Replace('{PUBLISHER}', $Publisher)
 [IO.File]::WriteAllText((Join-Path $layout 'AppxManifest.xml'), $manifesto, (New-Object Text.UTF8Encoding $false))
 

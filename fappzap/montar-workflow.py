@@ -49,6 +49,7 @@ exigir("aarch64-pc-windows" not in jobs["build-for-windows-flutter"], "não cons
 # A marca entra logo depois de cada checkout (com submódulos: a chave mora no hbb_common).
 CHECKOUT = re.compile(r"(      - name: Checkout source code\n        uses: actions/checkout@[^\n]+\n        with:\n          submodules: recursive\n)")
 PASSO = ("\n      - name: Aplicar a marca FappZap Acesso\n        shell: bash\n"
+         "        env:\n          FAPPZAP_VARIANTE: ${{ inputs.variante }}\n"
          "        run: python3 fappzap/aplicar-marca.py\n")
 for j in ["build-for-windows-flutter", "build-rustdesk-android", "build-rustdesk-android-universal"]:
     novo, n = CHECKOUT.subn(r"\1" + PASSO, jobs[j])
@@ -70,6 +71,39 @@ w = re.sub(r"\n      - name: Build pre-built MSI template\n.*?(?=\n      - name:
 exigir("RDAPPNAM" not in w, "não consegui tirar o molde de MSI")
 jobs["build-for-windows-flutter"] = w
 
+# VARIANTE DA MICROSOFT STORE (input variante=loja): só o Windows, e no fim do job sai o .msix sem assinatura
+# (a Microsoft assina). Use uma tag NOVA para ela (ex.: acesso-1.5.0-loja-1): o MSI/.exe que o job também gera
+# nessa tag são da variante da loja (sem "Instalar") e NÃO devem ser distribuídos.
+a = jobs["build-rustdesk-android"]
+exigir("    needs: [generate-bridge]\n" in a, "needs do job Android mudou")
+jobs["build-rustdesk-android"] = a.replace("    needs: [generate-bridge]\n",
+                                           "    needs: [generate-bridge]\n    if: ${{ inputs.variante != 'loja' }}\n", 1)
+u = jobs["build-rustdesk-android-universal"]
+exigir("    if: ${{ inputs.upload-artifact }}\n" in u, "if do job Android universal mudou")
+jobs["build-rustdesk-android-universal"] = u.replace("    if: ${{ inputs.upload-artifact }}\n", "    if: ${{ inputs.variante != 'loja' }}\n", 1)
+exigir("      - name: Publish Release\n" in jobs["build-for-windows-flutter"], "passo Publish Release do Windows mudou")
+jobs["build-for-windows-flutter"] = jobs["build-for-windows-flutter"].rstrip("\n") + """
+
+      - name: Montar o pacote da Microsoft Store (variante loja)
+        if: inputs.variante == 'loja'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path SignOutput | Out-Null
+          $p = "${{ env.VERSION }}".Split('.')
+          $versao = "$($p[0]).$($p[1]).${{ inputs.revisao }}.0"
+          ./fappzap/msix/montar-msix.ps1 -App ./rustdesk -Saida "./SignOutput/fappzap-acesso-${{ env.VERSION }}-loja-x64.msix" `
+            -Versao $versao -Modelo AppxManifest.loja.xml -Identidade "${{ inputs.identidade }}" -Publisher "${{ inputs.publisher }}"
+
+      - name: Publicar o pacote da Microsoft Store
+        if: inputs.variante == 'loja'
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        with:
+          prerelease: true
+          tag_name: ${{ env.TAG_NAME }}
+          files: |
+            ./SignOutput/fappzap-acesso-*-loja-x64.msix
+"""
+
 # Nomes dos arquivos publicados.
 for j in jobs:
     jobs[j] = (jobs[j].replace("SignOutput/rustdesk-", "SignOutput/fappzap-acesso-")
@@ -86,6 +120,27 @@ cab = re.sub(r"(?ms)^on:\n.*?(?=^# NOTE|^env:)", """on:
       tag:
         description: "Tag do release onde os arquivos entram (ex.: acesso-1.5.0-1)"
         required: true
+        type: string
+      variante:
+        description: "padrao = MSI, .exe e APKs (acesso sem supervisão) | loja = pacote da Microsoft Store (só atendimento com o cliente presente)"
+        required: false
+        default: padrao
+        type: choice
+        options: [padrao, loja]
+      revisao:
+        description: "Só variante loja: 3º número da versão do pacote (1.5.<revisao>.0). Suba a cada envio novo à Store."
+        required: false
+        default: "0"
+        type: string
+      identidade:
+        description: "Só variante loja: Package/Identity/Name do produto no Partner Center"
+        required: false
+        default: "FappSolutions.FappZapAcesso"
+        type: string
+      publisher:
+        description: "Só variante loja: Package/Identity/Publisher do Partner Center"
+        required: false
+        default: "CN=997374EF-248E-4CB5-BE11-B0218CDA905C"
         type: string
 
 permissions:
