@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Manifesto da variante da MICROSOFT STORE do FappZap Acesso (atendimento com o cliente PRESENTE).
-     {VERSAO}, {IDENTIDADE} e {PUBLISHER} são trocados pelo fappzap/msix/montar-msix.ps1.
+     Os valores de versão, identidade e publisher são preenchidos pelo fappzap/msix/montar-msix.ps1.
 
      Por que é mais enxuto que o AppxManifest.xml: dentro de um pacote da Store o Windows não deixa o
      serviço abrir o programa na sessão do usuário (erro 575, verificado em 04/10/2026), então NÃO há
@@ -9,12 +9,15 @@
      (e risco) na análise da Store. Fica só o necessário: internet (servidor e conexão) e runFullTrust
      (o programa é um aplicativo de desktop completo, empacotado como a Store pede).
      O botão "Instalar" some (variante compilada com disable-installation): instalar copiaria o programa
-     para fora do pacote, o que a Store não quer e o Windows não confiaria. -->
+     para fora do pacote, o que a Store não quer e o Windows não confiaria.
+     A regra de entrada do firewall evita o aviso "Deseja permitir que redes públicas e privadas acessem
+     este aplicativo?" na primeira abertura (visto na Sandbox, 05/10/2026), como o MSI já faz. -->
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap desktop2 rescap">
 
   <Identity Name="{IDENTIDADE}" Publisher="{PUBLISHER}" Version="{VERSAO}" ProcessorArchitecture="x64" />
 
@@ -50,6 +53,15 @@
       </Extensions>
     </Application>
   </Applications>
+
+  <Extensions>
+    <desktop2:Extension Category="windows.firewallRules">
+      <desktop2:FirewallRules Executable="FappZap-Acesso.exe">
+        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="all" />
+        <desktop2:Rule Direction="in" IPProtocol="UDP" Profile="all" />
+      </desktop2:FirewallRules>
+    </desktop2:Extension>
+  </Extensions>
 
   <Capabilities>
     <Capability Name="internetClient" />
