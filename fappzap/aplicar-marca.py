@@ -201,6 +201,24 @@ trocar("flutter/pubspec.yaml", "  fonts:\n    - family: GestureIcons\n",
        "        - asset: assets/fonts/Inter-Bold.ttf\n          weight: 700\n"
        "    - family: GestureIcons\n")
 
+# 3e. Mac e iPhone. No Mac o .app TEM de se chamar APP_NAME: o macos.rs monta com get_app_name() os caminhos
+# /Applications/FappZap-Acesso.app, o executável dentro dele e os plists do serviço. O pacote próprio
+# (com.fappsolutions.acesso) deixa o app conviver com o RustDesk oficial e ter as próprias permissões.
+trocar("flutter/macos/Runner/Configs/AppInfo.xcconfig", "PRODUCT_NAME = RustDesk", f"PRODUCT_NAME = {APP_NAME}")
+trocar("flutter/macos/Runner/Configs/AppInfo.xcconfig", "PRODUCT_BUNDLE_IDENTIFIER = com.carriez.flutterHbb",
+       f"PRODUCT_BUNDLE_IDENTIFIER = {PACOTE_ANDROID}")
+trocar("flutter/macos/Runner/Configs/AppInfo.xcconfig", r"^PRODUCT_COPYRIGHT = .*$", f"PRODUCT_COPYRIGHT = {COPYRIGHT}", regex=True)
+trocar("flutter/macos/Runner.xcodeproj/project.pbxproj", "PRODUCT_BUNDLE_IDENTIFIER = com.carriez.rustdesk;",
+       f"PRODUCT_BUNDLE_IDENTIFIER = {PACOTE_ANDROID};")
+trocar("flutter/ios/Runner.xcodeproj/project.pbxproj", "PRODUCT_BUNDLE_IDENTIFIER = com.carriez.flutterHbb;",
+       f"PRODUCT_BUNDLE_IDENTIFIER = {PACOTE_ANDROID};")
+for plist in ("flutter/macos/Runner/Info.plist", "flutter/ios/Runner/Info.plist"):
+    trocar(plist, "<string>com.carriez.rustdesk</string>", f"<string>{PACOTE_ANDROID}</string>")
+    trocar(plist, "<string>rustdesk</string>", f"<string>{APP_NAME.lower()}</string>")
+trocar("flutter/ios/Runner/Info.plist", "<string>RustDesk</string>", f"<string>{NOME_VISIVEL}</string>")
+# O build.py copia o serviço para dentro do .app pelo nome antigo.
+trocar("build.py", "Release/RustDesk.app/Contents/MacOS/')", f"Release/{APP_NAME}.app/Contents/MacOS/')")
+
 # 4. Ícones: fappzap/marca/ espelha os caminhos do repositório
 copiados = 0
 for origem in MARCA.rglob("*"):

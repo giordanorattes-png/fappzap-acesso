@@ -18,6 +18,7 @@ editado no git: a marca entra na hora da compilação.
 |---|---|
 | `aplicar-marca.py` | troca nome, servidor, chave e pacote e copia os ícones de `marca/`. Para com erro se algum trecho esperado sumir numa versão nova. |
 | `montar-workflow.py` | gera `.github/workflows/fappzap-acesso.yml` a partir do `flutter-build.yml` do RustDesk (só Windows x64 e Android). |
+| `montar-workflow-apple.py` | gera `.github/workflows/fappzap-acesso-apple.yml`: o `.dmg` do Mac e o app de iPhone sem assinatura. |
 | `icone-acesso.svg` | o desenho do ícone. |
 | `gerar-marca.mjs` + `gerar-ico.py` | geram `marca/` a partir do SVG (precisam do sharp e do Pillow). |
 
@@ -29,8 +30,16 @@ Actions → **FappZap Acesso (Windows e Android)** → Run workflow, com a tag d
 O APK é assinado com a chave dos segredos `ANDROID_*` do repositório. A cópia da chave fica
 fora do git; sem ela não dá para atualizar o app já instalado nos celulares.
 
+### Mac e iPhone
+
+Actions → **FappZap Acesso (Mac e iPhone)** → Run workflow, com uma tag própria (ex.: `acesso-1.5.0-mac-1`).
+O `.dmg` (Apple Silicon e Intel) entra no release, ainda sem assinatura da Apple: no primeiro uso, botão
+direito no app → Abrir. O app de iPhone sai como artefato `fappzap-acesso-ios-sem-assinatura` e é
+assinado no Mac com a conta Apple antes de instalar. No iPhone o app só acessa outros computadores: o
+iOS não deixa o aparelho ser controlado.
+
 ## Versão nova do RustDesk
 
 1. `git fetch upstream --tags` e `git rebase --onto <tag nova> <tag antiga> fappzap`.
-2. `python fappzap/montar-workflow.py` e conferir o diff do workflow.
+2. `python fappzap/montar-workflow.py` e `python fappzap/montar-workflow-apple.py`, e conferir o diff dos workflows.
 3. Rodar o workflow com uma tag nova. Se o `aplicar-marca.py` parar, ajustar o trecho que mudou.
