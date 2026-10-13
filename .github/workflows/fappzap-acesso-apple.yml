@@ -239,6 +239,10 @@ jobs:
           fi
           ./build.py --flutter --hwcodec --unix-file-copy-paste ${{ matrix.job.extra-build-args }}
 
+      - name: Assinatura ad hoc (sem conta Apple)
+        if: env.UPLOAD_ARTIFACT == 'true'
+        run: codesign --force --deep --sign - ./flutter/build/macos/Build/Products/Release/FappZap-Acesso.app
+
       - name: create unsigned dmg
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
@@ -280,7 +284,7 @@ jobs:
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
           for name in fappzap-acesso*??.dmg; do
-              mv "$name" "${name%%.dmg}-${{ matrix.job.arch }}.dmg"
+              [[ "$name" == *-${{ matrix.job.arch }}.dmg ]] || mv "$name" "${name%%.dmg}-${{ matrix.job.arch }}.dmg"
           done
 
       - name: Publish DMG package

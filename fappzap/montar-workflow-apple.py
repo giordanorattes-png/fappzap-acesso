@@ -51,6 +51,21 @@ m = (m.replace("RustDesk.app", f"{APP}.app")
       .replace("for name in rustdesk*??.dmg", "for name in fappzap-acesso*??.dmg")
       .replace("rustdesk*-${{ matrix.job.arch }}.dmg", "fappzap-acesso*-${{ matrix.job.arch }}.dmg"))
 exigir("RustDesk.app" not in m, "sobrou RustDesk.app no job do Mac")
+# Sem a conta Apple, o executável sai assinado ad hoc COM "hardened runtime" e os frameworks sem:
+# o macOS recusa carregar o FlutterMacOS ("different Team IDs") e o app fecha ao abrir. Uma
+# assinatura ad hoc única do pacote inteiro resolve. Com os segredos MACOS_*, o passo de
+# assinatura do RustDesk assina de novo por cima.
+ANTES_DMG = "      - name: create unsigned dmg\n"
+exigir(ANTES_DMG in m, "passo create unsigned dmg mudou")
+m = m.replace(ANTES_DMG, f"""      - name: Assinatura ad hoc (sem conta Apple)
+        if: env.UPLOAD_ARTIFACT == 'true'
+        run: codesign --force --deep --sign - ./flutter/build/macos/Build/Products/Release/{APP}.app
+
+""" + ANTES_DMG, 1)
+# O .dmg sem assinatura já leva a arquitetura no nome: o passo de renomear repetia (…-aarch64-aarch64.dmg).
+RENOMEAR = '              mv "$name" "${name%%.dmg}-${{ matrix.job.arch }}.dmg"\n'
+exigir(RENOMEAR in m, "passo de renomear o .dmg mudou")
+m = m.replace(RENOMEAR, '              [[ "$name" == *-${{ matrix.job.arch }}.dmg ]] || mv "$name" "${name%%.dmg}-${{ matrix.job.arch }}.dmg"\n')
 jobs["build-for-macOS"] = m
 
 # iPhone: o RustDesk deixa o envio do .ipa comentado. Sem assinatura não sai .ipa, então
