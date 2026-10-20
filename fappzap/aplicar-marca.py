@@ -219,6 +219,15 @@ trocar("flutter/ios/Runner/Info.plist", "<string>RustDesk</string>", f"<string>{
 # O build.py copia o serviço para dentro do .app pelo nome antigo.
 trocar("build.py", "Release/RustDesk.app/Contents/MacOS/')", f"Release/{APP_NAME}.app/Contents/MacOS/')")
 
+# 3f. LOGADO NÃO CONECTAVA (20/10/2026): com login na conta (api-server = /api/acesso do FappZap) o cliente manda o
+#     access_token ao hbbs e, por causa dele, espera a troca de chave (secure_tcp) que só o servidor Pro faz. O nosso
+#     hbbs é o OSS: não valida token e não troca chave → "Failed to secure tcp: deadline has elapsed" em toda conexão.
+#     O token segue valendo para a API (login, catálogo); só não vai mais ao hbbs/hbbr — o mesmo do "outro servidor".
+trocar("src/client.rs",
+       "        } else {\n            (peer, \"\", key, token)\n        };",
+       "        } else {\n            // FappZap Acesso: hbbs OSS - sem token (ele não valida e não faz a troca de chave).\n"
+       "            (peer, \"\", key, \"\")\n        };")
+
 # 4. Ícones: fappzap/marca/ espelha os caminhos do repositório
 copiados = 0
 for origem in MARCA.rglob("*"):
