@@ -228,6 +228,103 @@ trocar("src/client.rs",
        "        } else {\n            // FappZap Acesso: hbbs OSS - sem token (ele não valida e não faz a troca de chave).\n"
        "            (peer, \"\", key, \"\")\n        };")
 
+# 3g. LIGADOS DE FÁBRICA (23/10/2026, leva do Acesso): o cursor de quem está do outro lado (o técnico vê onde o
+#     cliente aponta) e a caixa "Anotações" no fim da sessão (a nota vai para a sessão no FappZap: /api/acesso,
+#     1.191.39). São PADRÕES, não travas: quem desligar continua desligado.
+trocar(cfg, "pub static ref DEFAULT_DISPLAY_SETTINGS: RwLock<HashMap<String, String>> = Default::default();",
+       "pub static ref DEFAULT_DISPLAY_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from(["
+       '("show_remote_cursor".to_owned(), "Y".to_owned())]));')
+trocar(cfg, "pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = Default::default();",
+       "pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from(["
+       '("allow-ask-for-note".to_owned(), "Y".to_owned())]));')
+
+# 3h. SETA NO LUGAR DA BOLINHA AZUL (23/10/2026): quando o computador acessado não manda cursor (o Windows zera
+#     CURSOR_SHOWING sem mouse ligado — servidor em rack), o RustDesk desenha uma bolinha azul. Vira a seta de sempre
+#     (32x32, gerada por código: contorno preto, miolo branco), com a PONTA como ponto de clique (a bolinha era o centro).
+SETA_PNG = ("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAZ0lEQVR42u3WMQqAMBBE0b3/pb9YBCREY7MzKeaB9X7BuKmqosxw"
+            "R3BzRjC4InhyRDBTR7CijOCNKoIvigh2uiP4ozNiN3R++v8Dto9wvKUlYBqmPQWLIfKAs5eUdVWfcGOKiIhodQF6GkPLrYFQWwAAAABJ"
+            "RU5ErkJggg==")
+trocar("flutter/lib/models/model.dart", r"^const _defaultCursorPng =\n    '[^']*';",
+       f"const _defaultCursorPng =\n    '{SETA_PNG}';", regex=True)
+trocar("flutter/lib/models/model.dart", "  hotxGetter: (double w) => w / 2,\n  hotyGetter: (double h) => h / 2,\n",
+       "  hotxGetter: (double w) => 0.0, // FappZap: seta (ponta)\n  hotyGetter: (double h) => 0.0,\n")
+for f in ("flutter/lib/desktop/pages/remote_page.dart", "flutter/lib/mobile/pages/remote_page.dart",
+          "flutter/lib/mobile/widgets/floating_mouse.dart"):
+    trocar(f, "hotx = preDefaultCursor.image!.width / 2;", "hotx = 0.0; // FappZap: seta (ponta)")
+    trocar(f, "hoty = preDefaultCursor.image!.height / 2;", "hoty = 0.0;")
+
+# 3i. TROCAR DE TELA PELA BORDA (23/10/2026): a lógica mora em flutter/lib/fappzap/fz_acesso.dart (fappzap/marca/);
+#     aqui só os ganchos. A função Rust main_move_cursor_by fica DIRETO no src/flutter_ffi.rs (commit no fork): a
+#     ponte Flutter↔Rust é gerada pelo bridge.yml do RustDesk ANTES deste script — aqui só se confere.
+if "pub fn main_move_cursor_by(" not in (RAIZ / "src/flutter_ffi.rs").read_text(encoding="utf-8"):
+    sys.exit("aplicar-marca: falta main_move_cursor_by no src/flutter_ffi.rs (troca de tela pela borda)")
+im = "flutter/lib/models/input_model.dart"
+trocar(im, "import '../common.dart';\n", "import '../common.dart';\nimport '../fappzap/fz_acesso.dart';\n")
+trocar(im, "    final nearThr = 3;\n", "    final fzXLocal = x, fzYLocal = y; // FappZap: borda (antes de virar coordenada de lá)\n"
+       "    final nearThr = 3;\n")
+trocar(im, "    return InputModel.getPointInRemoteRect(\n        true, peerPlatform, kind, evtType, x, y, rect,\n        buttons: buttons);\n",
+       "    final fzFfi = parent.target; // FappZap: trocar de tela pela borda\n"
+       "    if (fzFfi != null && kind == kPointerEventKindMouse && moveInCanvas) {\n"
+       "      fzBordaMovimento(fzFfi,\n"
+       "          x: x, y: y, rect: rect, escala: canvas.scale, xLocal: fzXLocal, yLocal: fzYLocal,\n"
+       "          largura: canvas.size.width, altura: canvas.size.height, saiu: onExit, botoes: buttons);\n"
+       "    }\n"
+       "    return InputModel.getPointInRemoteRect(\n        true, peerPlatform, kind, evtType, x, y, rect,\n        buttons: buttons);\n")
+# Sair da imagem sempre cancela a espera (o leaveView só chama o tryMoveEdgeOnExit com permissão de teclado).
+rp = "flutter/lib/desktop/pages/remote_page.dart"
+trocar(rp, "  void leaveView(PointerExitEvent evt) {\n    _ffi.canvasModel.disableEdgeScroll();\n",
+       "  void leaveView(PointerExitEvent evt) {\n    fzBordaSaiu(_ffi); // FappZap: trocar de tela pela borda\n"
+       "    _ffi.canvasModel.disableEdgeScroll();\n")
+trocar(rp, "import '../../common.dart';\n", "import '../../common.dart';\nimport '../../fappzap/fz_acesso.dart';\n")
+tb = "flutter/lib/common/widgets/toolbar.dart"
+trocar(tb, "import 'package:flutter_hbb/common.dart';\n",
+       "import 'package:flutter_hbb/common.dart';\nimport 'package:flutter_hbb/fappzap/fz_acesso.dart';\n")
+trocar(tb, "  // follow remote window focus\n",
+       "  // FappZap: trocar de tela pela borda (fappzap/fz_acesso.dart)\n"
+       "  if (pi.displays.length > 1 &&\n"
+       "      pi.currentDisplay != kAllDisplayValue &&\n"
+       "      !bind.sessionIsMultiUiSession(sessionId: sessionId)) {\n"
+       "    v.add(TToggleMenu(\n"
+       "        child: Text(translate('Switch display at the edge')),\n"
+       "        value: fzBordaLigada(),\n"
+       "        onChanged: (value) async {\n"
+       "          if (value == null) return;\n"
+       "          await fzLigarBorda(value);\n"
+       "        }));\n"
+       "  }\n"
+       "  // follow remote window focus\n")
+
+# 3j. ⚡ PASSOS RÁPIDOS (23/10/2026): Gerenciador de tarefas, Prompt, Painel de controle etc. do Windows acessado,
+#     pelo teclado (Win+R + comando + Enter) — a caixa mora em fz_acesso.dart. Só com Windows do outro lado.
+trocar(tb, "  // restart\n",
+       "  // FappZap: passos rápidos (fappzap/fz_acesso.dart)\n"
+       "  if (isDefaultConn &&\n"
+       "      !ffiModel.viewOnly &&\n"
+       "      ffiModel.keyboard &&\n"
+       "      pi.platform == kPeerPlatformWindows) {\n"
+       "    v.add(TTextMenu(\n"
+       "        child: Text('⚡ ${translate(\"Quick steps\")}…'),\n"
+       "        onPressed: () => fzPassosRapidos(ffi)));\n"
+       "  }\n"
+       "  // restart\n")
+# Textos novos: a chave é em inglês (o padrão do RustDesk); pt e es traduzem.
+TRADUCOES = {
+    "src/lang/pt_BR.rs": ('        ("Status", "Status"),\n', [
+        ("Quick steps", "Passos rápidos"), ("Task Manager", "Gerenciador de tarefas"),
+        ("Command prompt", "Prompt de comando"), ("Control Panel", "Painel de controle"),
+        ("Computer Management", "Gerenciamento do computador"), ("Device Manager", "Gerenciador de dispositivos"),
+        ("Programs and Features", "Programas e recursos"), ("System", "Sistema"),
+        ("Switch display at the edge", "Trocar de tela pela borda")]),
+    "src/lang/es.rs": ('        ("Status", "Estado"),\n', [
+        ("Quick steps", "Pasos rápidos"), ("Task Manager", "Administrador de tareas"),
+        ("Command prompt", "Símbolo del sistema"), ("Control Panel", "Panel de control"),
+        ("Computer Management", "Administración de equipos"), ("Device Manager", "Administrador de dispositivos"),
+        ("Programs and Features", "Programas y características"), ("System", "Sistema"),
+        ("Switch display at the edge", "Cambiar de pantalla por el borde")]),
+}
+for arquivo, (ancora, pares) in TRADUCOES.items():
+    trocar(arquivo, ancora, "".join(f'        ("{k}", "{v}"),\n' for k, v in pares) + ancora)
+
 # 4. Ícones: fappzap/marca/ espelha os caminhos do repositório
 copiados = 0
 for origem in MARCA.rglob("*"):

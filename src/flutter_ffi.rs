@@ -1349,6 +1349,26 @@ pub fn main_set_cursor_position(x: i32, y: i32) -> SyncReturn<bool> {
     }
 }
 
+/// FappZap Acesso (23/10/2026): move o ponteiro DESTE computador por (dx, dy) a partir de onde ele está
+/// (troca de tela pela borda, flutter/lib/fappzap/fz_acesso.dart). Mora aqui, e não no aplicar-marca.py,
+/// porque a ponte Flutter↔Rust é gerada deste arquivo ANTES do script rodar.
+/// - Windows/Linux: pixels; macOS: pontos (o Dart já manda na unidade certa)
+/// - Android/iOS: no-op, sempre `false`
+pub fn main_move_cursor_by(dx: i32, dy: i32) -> SyncReturn<bool> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        match crate::get_cursor_pos() {
+            Some((x, y)) => SyncReturn(crate::set_cursor_pos(x + dx, y + dy)),
+            None => SyncReturn(false),
+        }
+    }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = (dx, dy);
+        SyncReturn(false)
+    }
+}
+
 /// Clip cursor to a rectangle (for pointer lock).
 ///
 /// When `enable` is true, the cursor is clipped to the rectangle defined by
